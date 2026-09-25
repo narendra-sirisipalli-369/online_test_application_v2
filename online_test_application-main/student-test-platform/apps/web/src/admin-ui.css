@@ -345,6 +345,10 @@
 .admin-pagination > div { align-items: center; display: flex; gap: 12px; }
 .admin-pagination button { align-items: center; background: #fff; border: 1px solid var(--border-strong); border-radius: 8px; color: #5e5869; display: flex; height: 31px; justify-content: center; width: 31px; }
 .admin-pagination button:hover:not(:disabled) { background: #f0f4fa; color: #3160ab; }
+.admin-shell .pagination-bar { font-size: 11px; padding-top: 17px; }
+.admin-shell .pagination-bar__summary { font-size: 11px; }
+.admin-shell .pagination-bar__arrow,
+.admin-shell .pagination-bar__page { border-radius: 8px; font-size: 11px; height: 31px; min-width: 31px; }
 .admin-section-count { background: #eff1f5; border-radius: 7px; color: #736c7b; font-size: 10px; font-weight: 800; padding: 6px 9px; }
 .admin-shell .admin-import-card { max-width: 760px; }
 .admin-import-card__icon { align-items: center; background: #ecf2fa; border-radius: 11px; color: #426caa; display: flex; height: 42px; justify-content: center; width: 42px; }

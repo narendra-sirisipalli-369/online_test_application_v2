@@ -2593,6 +2593,84 @@ button.bank-tile {
   border-color: var(--brand-purple);
 }
 
+/* ---------- Pagination bar ---------- */
+
+.pagination-bar {
+  align-items: center;
+  border-top: 1px solid var(--border-strong);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  justify-content: space-between;
+  padding-top: var(--sp-4);
+}
+
+.pagination-bar__summary {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.pagination-bar__summary strong {
+  color: var(--text-primary);
+  font-weight: 700;
+}
+
+.pagination-bar__controls {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+}
+
+.pagination-bar__arrow,
+.pagination-bar__page {
+  align-items: center;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 600;
+  height: 32px;
+  justify-content: center;
+  min-width: 32px;
+  padding: 0 6px;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.pagination-bar__arrow:hover:not(:disabled),
+.pagination-bar__page:hover:not(.pagination-bar__page--active) {
+  background: var(--purple-tint);
+  border-color: var(--brand-purple-soft);
+  color: var(--brand-purple);
+}
+
+.pagination-bar__arrow:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.pagination-bar__page--active {
+  background: var(--brand-purple);
+  border-color: var(--brand-purple);
+  color: white;
+}
+
+.pagination-bar__ellipsis {
+  color: var(--text-muted);
+  padding: 0 2px;
+}
+
+@media (max-width: 560px) {
+  .pagination-bar {
+    justify-content: center;
+    text-align: center;
+  }
+}
+
 /* ---------- Test creation wizard ---------- */
 
 .wizard-steps {

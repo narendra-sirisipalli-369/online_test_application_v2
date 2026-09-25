@@ -79,45 +79,47 @@ export function AdminQuestionBankListPage() {
         </div>
       </section>
 
-      {filteredBanks.length ? (
-        <div className="bank-grid">
-          {visibleBanks.map((bank) => (
-            <Link className="bank-tile" key={bank.id} to={`/admin/questions/${bank.id}`}>
-              <div className="bank-tile__icon"><FileText size={20} /></div>
-              <div className="bank-tile__body">
-                <div className="bank-tile__name">{bank.name}</div>
-                <span className="muted-text text-small">{bank.questionCount} question{bank.questionCount === 1 ? '' : 's'}</span>
-              </div>
-              <Badge tone={bank.type === 'IMPORTED' ? 'info' : 'neutral'} value={bank.mockExamType ? `${bank.mockExamType} mock` : bank.type === 'IMPORTED' ? 'Imported' : 'Manual'} />
-              <button
-                aria-label={`Delete ${bank.name}`}
-                className="icon-button-plain bank-tile__delete"
-                disabled={deletingId === bank.id}
-                onClick={(event) => void handleDelete(event, bank)}
-                title="Delete this bank"
-                type="button"
-              >
-                <Trash2 size={15} />
-              </button>
-            </Link>
-          ))}
-        </div>
-      ) : (
-        <div className="empty-state card">
-          <BookOpen size={26} />
-          <strong>{banks.length ? 'No matching banks' : 'No question banks yet'}</strong>
-          <p>{banks.length ? 'Try a different name or bank type.' : 'Import a DOCX or create one by hand to get started.'}</p>
-        </div>
-      )}
+      <section className="card stack">
+        {filteredBanks.length ? (
+          <div className="bank-grid">
+            {visibleBanks.map((bank) => (
+              <Link className="bank-tile" key={bank.id} to={`/admin/questions/${bank.id}`}>
+                <div className="bank-tile__icon"><FileText size={20} /></div>
+                <div className="bank-tile__body">
+                  <div className="bank-tile__name">{bank.name}</div>
+                  <span className="muted-text text-small">{bank.questionCount} question{bank.questionCount === 1 ? '' : 's'}</span>
+                </div>
+                <Badge tone={bank.type === 'IMPORTED' ? 'info' : 'neutral'} value={bank.mockExamType ? `${bank.mockExamType} mock` : bank.type === 'IMPORTED' ? 'Imported' : 'Manual'} />
+                <button
+                  aria-label={`Delete ${bank.name}`}
+                  className="icon-button-plain bank-tile__delete"
+                  disabled={deletingId === bank.id}
+                  onClick={(event) => void handleDelete(event, bank)}
+                  title="Delete this bank"
+                  type="button"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="empty-state">
+            <BookOpen size={26} />
+            <strong>{banks.length ? 'No matching banks' : 'No question banks yet'}</strong>
+            <p>{banks.length ? 'Try a different name or bank type.' : 'Import a DOCX or create one by hand to get started.'}</p>
+          </div>
+        )}
 
-      <Pagination
-        currentPage={currentPage}
-        itemLabel="question banks"
-        onPageChange={setPage}
-        pageSize={pageSize}
-        totalItems={filteredBanks.length}
-        totalPages={pageCount}
-      />
+        <Pagination
+          currentPage={currentPage}
+          itemLabel="question banks"
+          onPageChange={setPage}
+          pageSize={pageSize}
+          totalItems={filteredBanks.length}
+          totalPages={pageCount}
+        />
+      </section>
     </div>
   );
 }

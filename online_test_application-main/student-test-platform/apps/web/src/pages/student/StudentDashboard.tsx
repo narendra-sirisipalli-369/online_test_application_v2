@@ -83,7 +83,7 @@ export function StudentDashboard() {
       <section className="student-home__hero">
         <div className="student-home__hero-copy">
           <span className="student-home__eyebrow">
-            <Sparkles size={15} /> AVENGERS ACADEMY · STUDENT PORTAL
+            <Sparkles size={15} /> STUDENT PORTAL
           </span>
           <h1>Online Test Application</h1>
           <p>Welcome back{user?.name ? `, ${user.name.split(' ')[0]}` : ''}. Find your available tests and enter a room when you are ready.</p>

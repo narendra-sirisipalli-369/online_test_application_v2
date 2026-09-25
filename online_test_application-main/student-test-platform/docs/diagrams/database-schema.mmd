@@ -1,0 +1,110 @@
+erDiagram
+  AVATAR ||--o{ USER : "selected by"
+  USER ||--o{ QUESTION : "creates or updates"
+  USER ||--o{ QUESTION_BANK : "creates"
+  USER ||--o{ IMPORTED_DOCUMENT : "uploads"
+  USER ||--o{ TEST : "creates"
+  USER ||--o{ STUDENT_TEST_SESSION : "takes"
+  USER ||--o{ EXTRACTION_REVIEW : "reviews"
+  USER ||--o{ AUDIT_LOG : "performs"
+
+  IMPORTED_DOCUMENT ||--o{ QUESTION : "produces"
+  IMPORTED_DOCUMENT ||--o{ EXTRACTION_REVIEW : "has"
+  QUESTION_BANK ||--o{ QUESTION : "contains"
+
+  QUESTION ||--o{ QUESTION_OPTION : "has"
+  QUESTION ||--o{ QUESTION_CONTENT_BLOCK : "renders as"
+  QUESTION ||--o{ EXTRACTION_REVIEW : "is reviewed in"
+  QUESTION ||--o{ TEST_QUESTION : "included through"
+  QUESTION ||--o{ STUDENT_QUESTION_SELECTION : "selected through"
+  QUESTION ||--o{ STUDENT_ANSWER : "answered through"
+
+  TEST ||--o{ TEST_QUESTION : "contains"
+  TEST ||--o{ STUDENT_TEST_SESSION : "has attempts"
+
+  STUDENT_TEST_SESSION ||--o{ STUDENT_QUESTION_SELECTION : "records"
+  STUDENT_TEST_SESSION ||--o{ STUDENT_ANSWER : "records"
+  STUDENT_TEST_SESSION ||--|| RESULT_SUMMARY : "creates"
+
+  AVATAR {
+    string id PK
+    string name UK
+    string imageUrl
+    string accentColor
+  }
+
+  USER {
+    string id PK
+    enum role
+    string name UK
+    string passwordHash
+    string avatarId FK
+  }
+
+  QUESTION {
+    string id PK
+    enum sourceType
+    string paragraph
+    string questionText
+    enum answerType
+    string correctOptionKey
+    string correctTextAnswer
+    boolean finalApproved
+  }
+
+  QUESTION_BANK {
+    string id PK
+    string name
+    enum mockExamType
+  }
+
+  TEST {
+    string id PK
+    string title
+    enum status
+    enum mode
+    enum mockExamType
+    json mockStructure
+    datetime scheduledStartAt
+    datetime scheduledEndAt
+    int readingDurationSec
+    int answerDurationSec
+    int thresholdCount
+  }
+
+  STUDENT_TEST_SESSION {
+    string id PK
+    string testId FK
+    string studentId FK
+    enum status
+    datetime readingEndsAt
+    datetime answerEndsAt
+    int correctCount
+    int wrongCount
+    float scorePercent
+  }
+
+  STUDENT_QUESTION_SELECTION {
+    string id PK
+    string sessionId FK
+    string questionId FK
+    datetime selectedAt
+  }
+
+  STUDENT_ANSWER {
+    string id PK
+    string sessionId FK
+    string questionId FK
+    string selectedOptionKey
+    boolean isCorrect
+  }
+
+  RESULT_SUMMARY {
+    string id PK
+    string sessionId FK
+    int selectionCount
+    int answeredCount
+    int correctCount
+    int wrongCount
+    float scorePercent
+  }

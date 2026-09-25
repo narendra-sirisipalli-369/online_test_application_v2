@@ -1,0 +1,24 @@
+flowchart TB
+  Browser["React + Vite frontend<br/>Admin and Student screens"]
+  Auth["AuthContext<br/>JWT stored in sessionStorage"]
+  API["Express API :4100"]
+  AuthRoutes["/api/auth<br/>sign up, login, profile, avatars"]
+  AdminRoutes["/api/admin<br/>questions, imports, tests, room, analytics"]
+  StudentRoutes["/api/student<br/>tests, sessions, selections, answers, results"]
+  Files["Static files<br/>/uploads, /files, /avatars"]
+  Preprocess["DOCX preprocessing<br/>Python reader + validator + image mapper"]
+  Prisma["Prisma ORM"]
+  DB[("PostgreSQL")]
+
+  Browser --> Auth
+  Browser -->|"HTTP fetch + Bearer JWT"| API
+  API --> AuthRoutes
+  API --> AdminRoutes
+  API --> StudentRoutes
+  API --> Files
+  AdminRoutes -->|"DOCX upload"| Preprocess
+  Preprocess -->|"questions, tables, images, issues"| AdminRoutes
+  AuthRoutes --> Prisma
+  AdminRoutes --> Prisma
+  StudentRoutes --> Prisma
+  Prisma --> DB

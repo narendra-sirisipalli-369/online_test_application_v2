@@ -1,0 +1,327 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  STUDENT
+}
+
+enum TestStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum TestMode {
+  SECTIONAL
+  MOCK
+}
+
+enum MockExamType {
+  CAT
+  IPMAT
+  IPMAT_INDORE
+  IPMAT_ROHTAK
+}
+
+enum QuestionSourceType {
+  IMPORTED
+  MANUAL
+}
+
+enum QuestionAnswerType {
+  OPTIONS
+  TEXT
+}
+
+enum VerificationStatus {
+  PENDING
+  CORRECT
+  NEEDS_EDIT
+  INVALID
+  APPROVED
+}
+
+enum ContentBlockType {
+  TEXT
+  IMAGE
+}
+
+enum QuestionOrderMode {
+  FIXED
+  SHUFFLED
+}
+
+enum OptionOrderMode {
+  FIXED
+  SHUFFLED
+}
+
+enum ResultVisibility {
+  HIDDEN
+  AFTER_SUBMISSION
+  AFTER_TEST_END
+}
+
+enum SessionStatus {
+  NOT_STARTED
+  WAITING
+  READING
+  ANSWERING
+  SUBMITTED
+  AUTO_SUBMITTED
+  EXPIRED
+}
+
+model Avatar {
+  id          String @id @default(cuid())
+  name        String @unique
+  imageUrl    String
+  accentColor String
+  users       User[]
+}
+
+model User {
+  id                     String                 @id @default(cuid())
+  role                   UserRole
+  name                   String                 @unique
+  passwordHash           String
+  course                 String?
+  mobileNumber           String?
+  isBlocked              Boolean                @default(false)
+  onboardingSeenAt       DateTime?
+  avatarId               String?
+  avatar                 Avatar?                @relation(fields: [avatarId], references: [id])
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  createdQuestions       Question[]             @relation("QuestionCreatedBy")
+  updatedQuestions       Question[]             @relation("QuestionUpdatedBy")
+  uploadedDocuments      ImportedDocument[]     @relation("DocumentUploadedBy")
+  createdQuestionBanks   QuestionBank[]         @relation("QuestionBankCreatedBy")
+  createdTests           Test[]                 @relation("TestCreatedBy")
+  extractionReviews      ExtractionReview[]
+  studentSessions        StudentTestSession[]   @relation("StudentSessions")
+  auditLogs              AuditLog[]
+}
+
+model ImportedDocument {
+  id                 String             @id @default(cuid())
+  fileName           String
+  originalFilePath   String
+  extractionJsonPath String?
+  outputAssetDir     String?
+  uploadedById       String
+  uploadedBy         User               @relation("DocumentUploadedBy", fields: [uploadedById], references: [id])
+  extractionStatus   String             @default("COMPLETED")
+  originalPayload    Json?
+  createdAt          DateTime           @default(now())
+  questions          Question[]
+  reviews            ExtractionReview[]
+}
+
+model QuestionBank {
+  id          String     @id @default(cuid())
+  name        String
+  mockExamType MockExamType?
+  createdById String?
+  createdBy   User?      @relation("QuestionBankCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime   @default(now())
+  questions   Question[]
+}
+
+model Question {
+  id                 String              @id @default(cuid())
+  sourceType         QuestionSourceType
+  importedDocumentId String?
+  importedDocument   ImportedDocument?   @relation(fields: [importedDocumentId], references: [id])
+  questionBankId     String?
+  questionBank       QuestionBank?       @relation(fields: [questionBankId], references: [id])
+  createdById        String?
+  createdBy          User?               @relation("QuestionCreatedBy", fields: [createdById], references: [id])
+  updatedById        String?
+  updatedBy          User?               @relation("QuestionUpdatedBy", fields: [updatedById], references: [id])
+  paragraph          String?
+  questionText       String
+  textBeforeImage    String?
+  textAfterImage     String?
+  imagePath          String?
+  topic              String?
+  answerType         QuestionAnswerType  @default(OPTIONS)
+  correctOptionKey   String?
+  correctTextAnswer  String?
+  verificationStatus VerificationStatus  @default(PENDING)
+  finalApproved      Boolean             @default(false)
+  originalPayload    Json?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  contentBlocks      QuestionContentBlock[]
+  options            QuestionOption[]
+  testQuestions      TestQuestion[]
+  reviews            ExtractionReview[]
+  answers            StudentAnswer[]
+  selections         StudentQuestionSelection[]
+}
+
+model QuestionContentBlock {
+  id          String           @id @default(cuid())
+  questionId  String
+  question    Question         @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  blockType   ContentBlockType
+  sortOrder   Int
+  textContent String?
+  imagePath   String?
+}
+
+model QuestionOption {
+  id        String   @id @default(cuid())
+  questionId String
+  question  Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  optionKey String
+  content   String
+  sortOrder Int
+
+  @@unique([questionId, optionKey])
+}
+
+model ExtractionReview {
+  id                 String             @id @default(cuid())
+  importedDocumentId String
+  importedDocument   ImportedDocument   @relation(fields: [importedDocumentId], references: [id], onDelete: Cascade)
+  questionId         String
+  question           Question           @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  reviewerId         String
+  reviewer           User               @relation(fields: [reviewerId], references: [id])
+  status             VerificationStatus
+  notes              String?
+  originalData       Json?
+  finalData          Json?
+  createdAt          DateTime           @default(now())
+}
+
+model Test {
+  id                 String            @id @default(cuid())
+  title              String
+  description        String?
+  mode               TestMode          @default(SECTIONAL)
+  mockExamType       MockExamType?
+  mockStructure      Json?
+  scheduledStartAt   DateTime
+  scheduledEndAt     DateTime
+  status             TestStatus        @default(DRAFT)
+  readingDurationSec Int
+  answerDurationSec  Int
+  thresholdCount     Int
+  allowAboveThreshold Boolean          @default(true)
+  maxSelectableCount Int?
+  questionOrderMode  QuestionOrderMode @default(FIXED)
+  optionOrderMode    OptionOrderMode   @default(FIXED)
+  resultVisibility   ResultVisibility  @default(HIDDEN)
+  lobbyUnlockedAt    DateTime?
+  createdById        String
+  createdBy          User              @relation("TestCreatedBy", fields: [createdById], references: [id])
+  publishedAt        DateTime?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  testQuestions      TestQuestion[]
+  sessions           StudentTestSession[]
+}
+
+model TestQuestion {
+  id        String   @id @default(cuid())
+  testId     String
+  test       Test     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  sortOrder  Int
+  isActive   Boolean  @default(true)
+
+  @@unique([testId, questionId])
+}
+
+model StudentTestSession {
+  id                 String                     @id @default(cuid())
+  testId             String
+  test               Test                       @relation(fields: [testId], references: [id], onDelete: Cascade)
+  studentId          String
+  student            User                       @relation("StudentSessions", fields: [studentId], references: [id])
+  status             SessionStatus              @default(NOT_STARTED)
+  startedAt          DateTime?
+  readingStartedAt   DateTime?
+  readingEndsAt      DateTime?
+  selectionLockedAt  DateTime?
+  answerStartedAt    DateTime?
+  answerEndsAt       DateTime?
+  submittedAt        DateTime?
+  autoSubmitted      Boolean                    @default(false)
+  totalSelectedCount Int                        @default(0)
+  totalAnsweredCount Int                        @default(0)
+  correctCount       Int                        @default(0)
+  wrongCount         Int                        @default(0)
+  scorePercent       Float                      @default(0)
+  totalAnswerTimeSec Int                        @default(0)
+  rating             Int?
+  studentReview      String?
+  feedbackSubmittedAt DateTime?
+  createdAt          DateTime                   @default(now())
+  updatedAt          DateTime                   @updatedAt
+  selections         StudentQuestionSelection[]
+  answers            StudentAnswer[]
+  resultSummary      ResultSummary?
+
+  @@unique([testId, studentId])
+}
+
+model StudentQuestionSelection {
+  id         String              @id @default(cuid())
+  sessionId  String
+  session    StudentTestSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId String
+  question   Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedAt DateTime            @default(now())
+
+  @@unique([sessionId, questionId])
+}
+
+model StudentAnswer {
+  id                String              @id @default(cuid())
+  sessionId         String
+  session           StudentTestSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  questionId        String
+  question          Question            @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  selectedOptionKey String
+  isCorrect         Boolean
+  answeredAt        DateTime            @default(now())
+  lastUpdatedAt     DateTime            @updatedAt
+
+  @@unique([sessionId, questionId])
+}
+
+model ResultSummary {
+  id             String              @id @default(cuid())
+  sessionId      String              @unique
+  session        StudentTestSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  selectionCount Int
+  answeredCount  Int
+  correctCount   Int
+  wrongCount     Int
+  scorePercent   Float
+  createdAt      DateTime            @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  payload    Json?
+  createdAt  DateTime @default(now())
+}

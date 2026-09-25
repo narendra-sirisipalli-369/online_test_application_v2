@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import { ContentBlockList } from "../../components/ContentBlockList";
 import { PageHeader } from "../../components/PageHeader";
+import { Pagination } from "../../components/Pagination";
 import { useAuth } from "../../context/AuthContext";
 import {
   buildImageMarker,
@@ -26,6 +27,7 @@ function generateId() {
 }
 
 const KEYS = ["A", "B", "C", "D"];
+const SETS_PAGE_SIZE = 1;
 type Mock = "" | "CAT" | "IPMAT_INDORE" | "IPMAT_ROHTAK";
 type Question = {
   id: string;
@@ -108,6 +110,7 @@ export function AdminCreateQuestionPage() {
   const [name, setName] = useState("");
   const [mock, setMock] = useState<Mock>("");
   const [sets, setSets] = useState<QuestionSet[]>([createSet()]);
+  const [setPage, setSetPage] = useState(1);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<string | null>(null);
@@ -151,13 +154,17 @@ export function AdminCreateQuestionPage() {
       ),
     );
   const addSet = (subject = "") =>
-    setSets((current) => [
-      ...current,
-      createSet(
-        subject,
-        exam?.subjects.find((item) => item.name === subject)?.type,
-      ),
-    ]);
+    setSets((current) => {
+      const next = [
+        ...current,
+        createSet(
+          subject,
+          exam?.subjects.find((item) => item.name === subject)?.type,
+        ),
+      ];
+      setSetPage(Math.ceil(next.length / SETS_PAGE_SIZE));
+      return next;
+    });
   async function uploadImage(setId: string, questionId?: string) {
     const input = document.createElement("input");
     input.type = "file";
@@ -341,52 +348,80 @@ export function AdminCreateQuestionPage() {
               <Plus size={16} /> Add question set
             </button>
           </div>
-          {sets.map((set, index) => (
-            <SetEditor
-              exam={exam}
-              index={index}
-              key={set.id}
-              onAdd={() =>
-                updateSet(set.id, {
-                  questions: [
-                    ...set.questions,
-                    createQuestion(
-                      exam?.subjects.find(
-                        (subject) => subject.name === set.subject,
-                      )?.type,
-                    ),
-                  ],
-                })
-              }
-              onDelete={() =>
-                setSets((current) =>
-                  current.length === 1
-                    ? current
-                    : current.filter((item) => item.id !== set.id),
-                )
-              }
-              onDeleteQuestion={(id) =>
-                updateSet(set.id, {
-                  questions:
-                    set.questions.length === 1
-                      ? set.questions
-                      : set.questions.filter((question) => question.id !== id),
-                })
-              }
-              onSet={(patch) => updateSet(set.id, patch)}
-              onUploadPassage={() => void uploadImage(set.id)}
-              onUploadQuestion={(id) => void uploadImage(set.id, id)}
-              onQuestion={(id, patch) => updateQuestion(set.id, id, patch)}
-              questionRef={(questionId, element) => {
-                questionRefs.current[questionId] = element;
-              }}
-              paragraphRef={(element) => {
-                passageRefs.current[set.id] = element;
-              }}
-              set={set}
-              uploading={uploading}
-            />
-          ))}
+          {(() => {
+            const setPageCount = Math.max(1, Math.ceil(sets.length / SETS_PAGE_SIZE));
+            const currentSetPage = Math.min(setPage, setPageCount);
+            const visibleSets = sets
+              .map((set, index) => ({ set, index }))
+              .slice((currentSetPage - 1) * SETS_PAGE_SIZE, currentSetPage * SETS_PAGE_SIZE);
+            return (
+              <>
+                <Pagination
+                  currentPage={currentSetPage}
+                  itemLabel="question sets"
+                  onPageChange={setSetPage}
+                  pageSize={SETS_PAGE_SIZE}
+                  totalItems={sets.length}
+                  totalPages={setPageCount}
+                />
+                {visibleSets.map(({ set, index }) => (
+                  <SetEditor
+                    exam={exam}
+                    index={index}
+                    key={set.id}
+                    onAdd={() =>
+                      updateSet(set.id, {
+                        questions: [
+                          ...set.questions,
+                          createQuestion(
+                            exam?.subjects.find(
+                              (subject) => subject.name === set.subject,
+                            )?.type,
+                          ),
+                        ],
+                      })
+                    }
+                    onDelete={() =>
+                      setSets((current) => {
+                        if (current.length === 1) return current;
+                        const next = current.filter((item) => item.id !== set.id);
+                        setSetPage((page) => Math.min(page, Math.ceil(next.length / SETS_PAGE_SIZE)));
+                        return next;
+                      })
+                    }
+                    onDeleteQuestion={(id) =>
+                      updateSet(set.id, {
+                        questions:
+                          set.questions.length === 1
+                            ? set.questions
+                            : set.questions.filter((question) => question.id !== id),
+                      })
+                    }
+                    onSet={(patch) => updateSet(set.id, patch)}
+                    onUploadPassage={() => void uploadImage(set.id)}
+                    onUploadQuestion={(id) => void uploadImage(set.id, id)}
+                    onQuestion={(id, patch) => updateQuestion(set.id, id, patch)}
+                    questionRef={(questionId, element) => {
+                      questionRefs.current[questionId] = element;
+                    }}
+                    paragraphRef={(element) => {
+                      passageRefs.current[set.id] = element;
+                    }}
+                    set={set}
+                    uploading={uploading}
+                  />
+                ))}
+                <Pagination
+                  currentPage={currentSetPage}
+                  itemLabel="question sets"
+                  onPageChange={setSetPage}
+                  pageSize={SETS_PAGE_SIZE}
+                  totalItems={sets.length}
+                  totalPages={setPageCount}
+                />
+              </>
+            );
+          })()}
         </main>
         <aside className="creator-summary card">
           <div className="creator-summary__title">

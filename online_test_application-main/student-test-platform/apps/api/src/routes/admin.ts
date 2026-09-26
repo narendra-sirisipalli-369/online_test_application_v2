@@ -322,6 +322,83 @@ adminRouter.get('/students/:studentId/history', asyncHandler(async (req, res) =>
   });
 }));
 
+adminRouter.get('/students/:studentId/history/:sessionId/questions', asyncHandler(async (req, res) => {
+  const session = await prisma.studentTestSession.findFirst({
+    where: {
+      id: req.params.sessionId,
+      studentId: req.params.studentId,
+    },
+    include: {
+      answers: true,
+      selections: true,
+      test: {
+        include: {
+          testQuestions: {
+            include: {
+              question: {
+                include: {
+                  options: true,
+                  contentBlocks: true,
+                },
+              },
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+      },
+    },
+  });
+
+  if (!session) {
+    return res.status(404).json({ message: 'Test attempt not found for this student' });
+  }
+
+  const selectedQuestionIds = new Set(session.selections.map((selection) => selection.questionId));
+  const answersByQuestionId = new Map(session.answers.map((answer) => [answer.questionId, answer]));
+  const questions = session.test.testQuestions
+    .filter((item) => selectedQuestionIds.has(item.questionId))
+    .map((item) => {
+      const question = item.question;
+      const answer = answersByQuestionId.get(question.id);
+      const options = [...question.options]
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .map((option) => ({ key: option.optionKey, content: option.content }));
+      const correctAnswer = question.answerType === QuestionAnswerType.TEXT
+        ? question.correctTextAnswer
+        : question.correctOptionKey;
+
+      return {
+        id: question.id,
+        questionNumber: extractQuestionNumber(question.originalPayload) || String(item.sortOrder),
+        paragraph: question.paragraph,
+        questionText: question.questionText,
+        imagePath: question.imagePath,
+        topic: question.topic,
+        answerType: question.answerType,
+        options,
+        correctAnswer,
+        correctAnswerContent: question.answerType === QuestionAnswerType.OPTIONS
+          ? options.find((option) => option.key === correctAnswer)?.content || null
+          : correctAnswer,
+        studentAnswer: answer?.selectedOptionKey || null,
+        studentAnswerContent: question.answerType === QuestionAnswerType.OPTIONS
+          ? options.find((option) => option.key === answer?.selectedOptionKey)?.content || null
+          : answer?.selectedOptionKey || null,
+        result: !answer ? 'NOT_ANSWERED' : answer.isCorrect ? 'CORRECT' : 'WRONG',
+        answeredAt: answer?.answeredAt || null,
+      };
+    });
+
+  res.json({
+    session: {
+      id: session.id,
+      testId: session.testId,
+      testTitle: session.test.title,
+    },
+    questions,
+  });
+}));
+
 adminRouter.patch('/students/:studentId/block', asyncHandler(async (req, res) => {
   const schema = z.object({ blocked: z.boolean() });
   const payload = schema.parse(req.body);

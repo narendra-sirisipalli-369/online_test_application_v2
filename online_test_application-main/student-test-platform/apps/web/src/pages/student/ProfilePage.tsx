@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Eye, EyeOff, History, KeyRound, ShieldCheck, UserRound } from 'lucide-react';
+import { ArrowLeft, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye, EyeOff, History, KeyRound, ShieldCheck, UserRound } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api/client';
 import { AnimalAvatar } from '../../components/AnimalAvatar';
+import { AttemptQuestionReview } from '../../components/AttemptQuestionReview';
+import { Pagination } from '../../components/Pagination';
 import { useAuth } from '../../context/AuthContext';
-import type { Avatar, HistoryEntry } from '../../types/app';
+import type { Avatar, HistoryEntry, StudentHistoryQuestion } from '../../types/app';
 
 const FINISHED_STATUSES = new Set(['SUBMITTED', 'AUTO_SUBMITTED', 'EXPIRED']);
 
@@ -70,6 +72,11 @@ export function ProfilePage() {
 
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [questionDetails, setQuestionDetails] = useState<Record<string, StudentHistoryQuestion[]>>({});
+  const [questionPages, setQuestionPages] = useState<Record<string, number>>({});
+  const [detailsLoadingId, setDetailsLoadingId] = useState<string | null>(null);
+  const [detailsError, setDetailsError] = useState('');
 
   useEffect(() => {
     api.listAvatars().then((response) => setAvatars(response.avatars)).catch(() => undefined);
@@ -139,6 +146,28 @@ export function ProfilePage() {
       setPasswordError(err instanceof Error ? err.message : 'Unable to update password');
     } finally {
       setPasswordBusy(false);
+    }
+  }
+
+  async function toggleQuestionDetails(sessionId: string) {
+    if (expandedSessionId === sessionId) {
+      setExpandedSessionId(null);
+      return;
+    }
+
+    setExpandedSessionId(sessionId);
+    setDetailsError('');
+    setQuestionPages((pages) => ({ ...pages, [sessionId]: pages[sessionId] || 1 }));
+    if (!token || questionDetails[sessionId]) return;
+
+    setDetailsLoadingId(sessionId);
+    try {
+      const response = await api.studentHistoryQuestions(token, sessionId);
+      setQuestionDetails((details) => ({ ...details, [sessionId]: response.questions }));
+    } catch (err) {
+      setDetailsError(err instanceof Error ? err.message : 'Unable to load your questions and answers');
+    } finally {
+      setDetailsLoadingId(null);
     }
   }
 
@@ -218,19 +247,57 @@ export function ProfilePage() {
         {history.length ? (
           <>
             <div className="profile-stack__history-list">
-              {visibleHistory.map((entry) => (
-                <article className="profile-stack__history-item" key={entry.sessionId}>
-                  <div>
-                    <strong>{entry.testTitle}</strong>
-                    <span>{entry.submittedAt ? new Date(entry.submittedAt).toLocaleDateString() : 'Awaiting submission'}</span>
-                  </div>
-                  <div className="profile-stack__history-meta">
-                    <span className="profile-stack__history-status">{entry.status.replaceAll('_', ' ')}</span>
-                    <span>{FINISHED_STATUSES.has(entry.status) ? `${entry.scorePercent.toFixed(0)}%` : '—'}</span>
-                    {FINISHED_STATUSES.has(entry.status) ? <Link to={`/student/sessions/${entry.sessionId}/result`}>View</Link> : null}
-                  </div>
-                </article>
-              ))}
+              {visibleHistory.map((entry) => {
+                const questions = questionDetails[entry.sessionId] || [];
+                const questionPageSize = 5;
+                const questionPageCount = Math.max(1, Math.ceil(questions.length / questionPageSize));
+                const questionPage = Math.min(questionPages[entry.sessionId] || 1, questionPageCount);
+                const visibleQuestions = questions.slice((questionPage - 1) * questionPageSize, questionPage * questionPageSize);
+                const expanded = expandedSessionId === entry.sessionId;
+
+                return (
+                  <article className={`profile-stack__history-item ${expanded ? 'profile-stack__history-item--expanded' : ''}`} key={entry.sessionId}>
+                    <div className="profile-stack__history-summary-row">
+                      <div>
+                        <strong>{entry.testTitle}</strong>
+                        <span>{entry.submittedAt ? new Date(entry.submittedAt).toLocaleDateString() : 'Awaiting submission'}</span>
+                      </div>
+                      <div className="profile-stack__history-meta">
+                        <span className="profile-stack__history-status">{entry.status.replaceAll('_', ' ')}</span>
+                        <span>{FINISHED_STATUSES.has(entry.status) ? `${entry.scorePercent.toFixed(0)}%` : '—'}</span>
+                        {entry.canReviewAnswers ? <Link to={`/student/sessions/${entry.sessionId}/result`}>Result</Link> : null}
+                        {entry.canReviewAnswers && entry.totalSelectedCount ? (
+                          <button aria-expanded={expanded} className="student-history-answer-toggle" onClick={() => void toggleQuestionDetails(entry.sessionId)} type="button">
+                            {expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                            {expanded ? 'Hide answers' : 'View answers'}
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    {expanded ? (
+                      <section aria-label={`Questions and answers for ${entry.testTitle}`} className="student-history-answers student-history-answers--profile">
+                        <div className="student-history-answers__heading">
+                          <div><span>Your attempt</span><h4>Questions and answers</h4></div>
+                          {questions.length ? <strong>{questions.length} questions</strong> : null}
+                        </div>
+                        {detailsLoadingId === entry.sessionId ? <div className="history-answers-status">Loading questions and answers…</div> : null}
+                        {detailsError && detailsLoadingId !== entry.sessionId && !questions.length ? <div className="error-banner">{detailsError}</div> : null}
+                        {visibleQuestions.map((question) => <AttemptQuestionReview key={question.id} question={question} />)}
+                        {!detailsLoadingId && !detailsError && !questions.length ? <div className="history-answers-status">No selected questions were recorded for this attempt.</div> : null}
+                        <Pagination
+                          currentPage={questionPage}
+                          itemLabel="questions"
+                          onPageChange={(nextPage) => setQuestionPages((pages) => ({ ...pages, [entry.sessionId]: nextPage }))}
+                          pageSize={questionPageSize}
+                          totalItems={questions.length}
+                          totalPages={questionPageCount}
+                        />
+                      </section>
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
             <div className="profile-stack__pager">
               <button className="ghost-button" disabled={historyPage === 1} onClick={() => setHistoryPage((page) => Math.max(1, page - 1))} type="button">

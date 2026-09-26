@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import { Modal } from '../../components/Modal';
 import { PageHeader } from '../../components/PageHeader';
 import { ParagraphGroupCard } from '../../components/ParagraphGroupCard';
+import { LatexText } from '../../components/LatexText';
 import { useAuth } from '../../context/AuthContext';
 import { normalizeText } from '../../utils/contentBlocks';
 import type { QuestionOption, Test } from '../../types/app';
@@ -187,13 +188,13 @@ export function AdminAnalyticsPage() {
             ) : null}
             {selectedQuestion.questions.map((question) => (
               <article className="card stack" key={question.questionId} style={{ padding: 20 }}>
-                <strong>{question.questionNumber}. {question.questionText}</strong>
+                <strong>{question.questionNumber}. <LatexText text={question.questionText} /></strong>
                 {question.answerType === 'OPTIONS' ? (
                   <div className="stack" style={{ gap: 10 }}>
                     {question.options.map((option) => (
                       <div className="option-row option-row--preview" key={option.key}>
                         <span className="option-row__key">{option.key}</span>
-                        <span className="option-row__text">{option.content}</span>
+                        <span className="option-row__text"><LatexText text={option.content} /></span>
                       </div>
                     ))}
                   </div>

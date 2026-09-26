@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, CalendarDays, Clock3, Star, UserRound } from 'lucide-react';
+import { ArrowLeft, CalendarDays, ChevronDown, ChevronUp, Clock3, Star, UserRound } from 'lucide-react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { Badge } from '../../components/Badge';
+import { AttemptQuestionReview } from '../../components/AttemptQuestionReview';
 import { PageHeader } from '../../components/PageHeader';
+import { Pagination } from '../../components/Pagination';
 import { useAuth } from '../../context/AuthContext';
-import type { StudentHistoryEntry, StudentSummary } from '../../types/app';
+import type { StudentHistoryEntry, StudentHistoryQuestion, StudentSummary } from '../../types/app';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4100';
 
@@ -40,6 +42,11 @@ export function AdminStudentHistoryPage() {
   const [history, setHistory] = useState<StudentHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [questionDetails, setQuestionDetails] = useState<Record<string, StudentHistoryQuestion[]>>({});
+  const [questionPages, setQuestionPages] = useState<Record<string, number>>({});
+  const [detailsLoadingId, setDetailsLoadingId] = useState<string | null>(null);
+  const [detailsError, setDetailsError] = useState('');
 
   useEffect(() => {
     if (!token) return;
@@ -52,6 +59,28 @@ export function AdminStudentHistoryPage() {
       .catch((err) => setError(err instanceof Error ? err.message : 'Unable to load student history'))
       .finally(() => setLoading(false));
   }, [studentId, token]);
+
+  async function toggleQuestionDetails(sessionId: string) {
+    if (expandedSessionId === sessionId) {
+      setExpandedSessionId(null);
+      return;
+    }
+
+    setExpandedSessionId(sessionId);
+    setDetailsError('');
+    setQuestionPages((pages) => ({ ...pages, [sessionId]: pages[sessionId] || 1 }));
+    if (!token || questionDetails[sessionId]) return;
+
+    setDetailsLoadingId(sessionId);
+    try {
+      const response = await api.adminStudentHistoryQuestions(token, studentId, sessionId);
+      setQuestionDetails((details) => ({ ...details, [sessionId]: response.questions }));
+    } catch (err) {
+      setDetailsError(err instanceof Error ? err.message : 'Unable to load question and answer details');
+    } finally {
+      setDetailsLoadingId(null);
+    }
+  }
 
   if (loading) return <div className="page-loader">Loading student history…</div>;
 
@@ -102,8 +131,15 @@ export function AdminStudentHistoryPage() {
 
         {history.length ? (
           <div className="student-history-list">
-            {history.map((entry) => (
-              <article className="card student-history-entry" key={entry.id}>
+            {history.map((entry) => {
+              const questions = questionDetails[entry.id] || [];
+              const questionPageSize = 5;
+              const questionPageCount = Math.max(1, Math.ceil(questions.length / questionPageSize));
+              const questionPage = Math.min(questionPages[entry.id] || 1, questionPageCount);
+              const visibleQuestions = questions.slice((questionPage - 1) * questionPageSize, questionPage * questionPageSize);
+
+              return (
+              <article className={`card student-history-entry ${expandedSessionId === entry.id ? 'student-history-entry--expanded' : ''}`} key={entry.id}>
                 <div className="student-history-entry__heading">
                   <div><span>{entry.test.mode === 'MOCK' ? 'Mock test' : 'Sectional test'}</span><h3>{entry.test.title}</h3></div>
                   <Badge value={entry.status} />
@@ -121,8 +157,40 @@ export function AdminStudentHistoryPage() {
                   <span><Clock3 size={13} /> Submitted {entry.submittedAt ? new Date(entry.submittedAt).toLocaleString() : '—'}</span>
                 </div>
                 {entry.review ? <blockquote>{entry.review}</blockquote> : null}
+                <button
+                  aria-expanded={expandedSessionId === entry.id}
+                  className="ghost-button student-history-entry__details-button"
+                  disabled={!entry.selectedCount}
+                  onClick={() => void toggleQuestionDetails(entry.id)}
+                  type="button"
+                >
+                  {expandedSessionId === entry.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  {entry.selectedCount ? (expandedSessionId === entry.id ? 'Hide questions and answers' : 'View questions and answers') : 'No questions selected'}
+                </button>
+
+                {expandedSessionId === entry.id ? (
+                  <section aria-label={`Questions and answers for ${entry.test.title}`} className="student-history-answers">
+                    <div className="student-history-answers__heading">
+                      <div><span>Attempt details</span><h4>Questions and answers</h4></div>
+                      {questions.length ? <strong>{questions.length} questions</strong> : null}
+                    </div>
+                    {detailsLoadingId === entry.id ? <div className="history-answers-status">Loading questions and answers…</div> : null}
+                    {detailsError && detailsLoadingId !== entry.id && !questions.length ? <div className="error-banner">{detailsError}</div> : null}
+                    {visibleQuestions.map((question) => <AttemptQuestionReview key={question.id} question={question} />)}
+                    {!detailsLoadingId && !detailsError && !questions.length ? <div className="history-answers-status">No selected questions were recorded for this attempt.</div> : null}
+                    <Pagination
+                      currentPage={questionPage}
+                      itemLabel="questions"
+                      onPageChange={(nextPage) => setQuestionPages((pages) => ({ ...pages, [entry.id]: nextPage }))}
+                      pageSize={questionPageSize}
+                      totalItems={questions.length}
+                      totalPages={questionPageCount}
+                    />
+                  </section>
+                ) : null}
               </article>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="card admin-reviews-empty"><UserRound size={28} /><strong>No test history yet</strong><p>This student has not started a test.</p></div>

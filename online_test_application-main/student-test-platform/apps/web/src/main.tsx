@@ -8,6 +8,7 @@ import './index.css';
 import './admin-ui.css';
 import './student-space-ui.css';
 import './signup-ui.css';
+import 'katex/dist/katex.min.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

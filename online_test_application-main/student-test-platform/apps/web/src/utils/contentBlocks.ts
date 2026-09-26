@@ -44,7 +44,8 @@ export function parseStructuredText(text: string): RenderBlock[] {
   }
 
   while (cursor < text.length) {
-    const tableIndex = text.indexOf('TableJSON:', cursor);
+    const relativeTableIndex = text.slice(cursor).search(/TableJSON\s*:/i);
+    const tableIndex = relativeTableIndex === -1 ? -1 : cursor + relativeTableIndex;
     const imageIndex = text.indexOf(IMAGE_MARKER_PREFIX, cursor);
 
     let markerIndex = -1;

@@ -1,4 +1,4 @@
-import type { Avatar, BankSummary, DetailedAnswerRow, ExtractionIssue, HistoryEntry, LobbyState, Question, ReviewRatingEntry, StudentHistoryEntry, StudentSummary, Test, TestSession, User } from '../types/app';
+import type { Avatar, BankSummary, DetailedAnswerRow, ExtractionIssue, HistoryEntry, LobbyState, Question, ReviewRatingEntry, StudentHistoryEntry, StudentHistoryQuestion, StudentSummary, Test, TestSession, User } from '../types/app';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4100';
 
@@ -57,6 +57,10 @@ export const api = {
     summary: { totalSessions: number; completedSessions: number; averageScore: number | null; ratedSessions: number };
     history: StudentHistoryEntry[];
   }>(`/api/admin/students/${studentId}/history`, { token }),
+  adminStudentHistoryQuestions: (token: string, studentId: string, sessionId: string) => request<{
+    session: { id: string; testId: string; testTitle: string };
+    questions: StudentHistoryQuestion[];
+  }>(`/api/admin/students/${studentId}/history/${sessionId}/questions`, { token }),
   blockStudent: (token: string, studentId: string, blocked: boolean) =>
     request<{ id: string; isBlocked: boolean }>(`/api/admin/students/${studentId}/block`, { token, method: 'PATCH', body: { blocked } }),
   deleteStudent: (token: string, studentId: string) =>
@@ -130,6 +134,8 @@ export const api = {
     request<{ questions: Array<Question & { answer: string | null }> }>(`/api/student/sessions/${sessionId}/answer-questions`, { token }),
   saveAnswer: (token: string, sessionId: string, body: { questionId: string; selectedOptionKey: string }) =>
     request<{ ok: boolean }>(`/api/student/sessions/${sessionId}/answers`, { token, method: 'POST', body }),
+  clearAnswer: (token: string, sessionId: string, questionId: string) =>
+    request<{ ok: boolean }>(`/api/student/sessions/${sessionId}/answers/${questionId}`, { token, method: 'DELETE' }),
   submitSession: (token: string, sessionId: string) =>
     request<{ session: TestSession }>(`/api/student/sessions/${sessionId}/submit`, { token, method: 'POST' }),
   sessionResult: (token: string, sessionId: string) =>
@@ -148,4 +154,6 @@ export const api = {
     request<{ onboardingSeenAt: string }>('/api/student/profile/onboarding-seen', { token, method: 'PUT' }),
   studentHistory: (token: string) =>
     request<{ history: HistoryEntry[] }>('/api/student/history', { token }),
+  studentHistoryQuestions: (token: string, sessionId: string) =>
+    request<{ questions: StudentHistoryQuestion[] }>(`/api/student/history/${sessionId}/questions`, { token }),
 };

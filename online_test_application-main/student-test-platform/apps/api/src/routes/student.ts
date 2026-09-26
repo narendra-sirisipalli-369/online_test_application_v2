@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { Router } from 'express';
-import { SessionStatus, TestStatus, UserRole } from '@prisma/client';
+import { QuestionAnswerType, SessionStatus, TestStatus, UserRole } from '@prisma/client';
 import { z } from 'zod';
 import { hashPassword, verifyPassword } from '../lib/auth.js';
 import { prisma } from '../lib/prisma.js';
@@ -31,6 +31,12 @@ function activeMockSubject(test: { mode: string; mockStructure?: unknown }, answ
     if (elapsedSeconds < boundary) return section.name;
   }
   return null;
+}
+
+function extractQuestionNumber(originalPayload: unknown) {
+  if (!originalPayload || typeof originalPayload !== 'object') return null;
+  const extracted = (originalPayload as { extracted?: { actual_number?: string; question_number?: string } }).extracted;
+  return extracted?.actual_number || extracted?.question_number || null;
 }
 
 export const studentRouter = Router();
@@ -368,6 +374,54 @@ studentRouter.post('/sessions/:sessionId/answers', asyncHandler(async (req, res)
   res.json({ ok: true });
 }));
 
+studentRouter.delete('/sessions/:sessionId/answers/:questionId', asyncHandler(async (req, res) => {
+  const session = await prisma.studentTestSession.findUnique({
+    where: { id: req.params.sessionId },
+    include: { test: true, selections: true },
+  });
+  if (!session || session.studentId !== req.auth!.userId) {
+    return res.status(404).json({ message: 'Session not found' });
+  }
+
+  const refreshed = await refreshSessionState(session.id);
+  if (refreshed.status !== SessionStatus.ANSWERING) {
+    return res.status(400).json({ message: 'Answer phase is not active' });
+  }
+
+  const allowed = session.selections.some((selection) => selection.questionId === req.params.questionId);
+  if (!allowed) {
+    return res.status(400).json({ message: 'Question was not selected during reading phase' });
+  }
+
+  const question = await prisma.question.findUnique({ where: { id: req.params.questionId } });
+  const activeSubject = activeMockSubject(session.test, session.answerStartedAt);
+  if (activeSubject && question?.topic !== activeSubject) {
+    return res.status(400).json({ message: `The ${activeSubject} section is currently active.` });
+  }
+
+  await prisma.studentAnswer.deleteMany({
+    where: { sessionId: session.id, questionId: req.params.questionId },
+  });
+
+  const answers = await prisma.studentAnswer.findMany({ where: { sessionId: session.id } });
+  const correctCount = answers.filter((item) => item.isCorrect).length;
+  await prisma.studentTestSession.update({
+    where: { id: session.id },
+    data: {
+      totalAnsweredCount: answers.length,
+      correctCount,
+      wrongCount: answers.length - correctCount,
+      scorePercent: session.selections.length ? (correctCount / session.selections.length) * 100 : 0,
+      totalAnswerTimeSec: Math.max(
+        0,
+        Math.floor((Date.now() - (session.answerStartedAt?.getTime() || Date.now())) / 1000),
+      ),
+    },
+  });
+
+  res.json({ ok: true });
+}));
+
 studentRouter.post('/sessions/:sessionId/submit', asyncHandler(async (req, res) => {
   const session = await prisma.studentTestSession.findUnique({
     where: { id: req.params.sessionId },
@@ -480,8 +534,94 @@ studentRouter.get('/history', asyncHandler(async (req, res) => {
       scorePercent: session.scorePercent,
       submittedAt: session.submittedAt,
       startedAt: session.startedAt,
+      canReviewAnswers: (
+        session.status === SessionStatus.SUBMITTED
+        || session.status === SessionStatus.AUTO_SUBMITTED
+      ) && (
+        session.test.resultVisibility === 'AFTER_SUBMISSION'
+        || (session.test.resultVisibility === 'AFTER_TEST_END' && session.test.status === TestStatus.CLOSED)
+      ),
     })),
   });
+}));
+
+studentRouter.get('/history/:sessionId/questions', asyncHandler(async (req, res) => {
+  const session = await prisma.studentTestSession.findFirst({
+    where: {
+      id: req.params.sessionId,
+      studentId: req.auth!.userId,
+    },
+    include: {
+      answers: true,
+      selections: true,
+      test: {
+        include: {
+          testQuestions: {
+            include: {
+              question: {
+                include: {
+                  options: true,
+                  contentBlocks: true,
+                },
+              },
+            },
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+      },
+    },
+  });
+
+  if (!session) {
+    return res.status(404).json({ message: 'Test attempt not found' });
+  }
+  if (session.status !== SessionStatus.SUBMITTED && session.status !== SessionStatus.AUTO_SUBMITTED) {
+    return res.status(400).json({ message: 'Questions and answers are available after submission' });
+  }
+  if (session.test.resultVisibility === 'HIDDEN') {
+    return res.status(403).json({ message: 'Answers have not been released for this test' });
+  }
+  if (session.test.resultVisibility === 'AFTER_TEST_END' && session.test.status !== TestStatus.CLOSED) {
+    return res.status(403).json({ message: 'Answers will be available after the test ends' });
+  }
+
+  const selectedQuestionIds = new Set(session.selections.map((selection) => selection.questionId));
+  const answersByQuestionId = new Map(session.answers.map((answer) => [answer.questionId, answer]));
+  const questions = session.test.testQuestions
+    .filter((item) => selectedQuestionIds.has(item.questionId))
+    .map((item) => {
+      const question = item.question;
+      const answer = answersByQuestionId.get(question.id);
+      const options = [...question.options]
+        .sort((left, right) => left.sortOrder - right.sortOrder)
+        .map((option) => ({ key: option.optionKey, content: option.content }));
+      const correctAnswer = question.answerType === QuestionAnswerType.TEXT
+        ? question.correctTextAnswer
+        : question.correctOptionKey;
+
+      return {
+        id: question.id,
+        questionNumber: extractQuestionNumber(question.originalPayload) || String(item.sortOrder),
+        paragraph: question.paragraph,
+        questionText: question.questionText,
+        imagePath: question.imagePath,
+        topic: question.topic,
+        answerType: question.answerType,
+        options,
+        correctAnswer,
+        correctAnswerContent: question.answerType === QuestionAnswerType.OPTIONS
+          ? options.find((option) => option.key === correctAnswer)?.content || null
+          : correctAnswer,
+        studentAnswer: answer?.selectedOptionKey || null,
+        studentAnswerContent: question.answerType === QuestionAnswerType.OPTIONS
+          ? options.find((option) => option.key === answer?.selectedOptionKey)?.content || null
+          : answer?.selectedOptionKey || null,
+        result: !answer ? 'NOT_ANSWERED' : answer.isCorrect ? 'CORRECT' : 'WRONG',
+        answeredAt: answer?.answeredAt || null,
+      };
+    });
+
+  res.json({ questions });
 }));
 
 studentRouter.get('/sessions/:sessionId/result', asyncHandler(async (req, res) => {

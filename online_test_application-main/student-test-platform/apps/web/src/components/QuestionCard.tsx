@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import type { Question } from "../types/app";
 import { ContentBlockList } from "./ContentBlockList";
+import { LatexText } from "./LatexText";
 import {
   normalizeText,
   parseStructuredText,
@@ -97,7 +98,7 @@ export function QuestionCard({
                   <span className="option-row__radio" />
                   <span className="option-row__key">{option.key}</span>
                   <span className="option-row__text">
-                    {option.content || "No option text"}
+                    <LatexText text={option.content || "No option text"} />
                   </span>
                 </div>
               ))}
@@ -147,7 +148,7 @@ export function QuestionCard({
                     </span>
                     <span className="option-row__key">{option.key}</span>
                     <span className="option-row__text">
-                      {option.content || "No option text"}
+                      <LatexText text={option.content || "No option text"} />
                     </span>
                   </button>
                 );

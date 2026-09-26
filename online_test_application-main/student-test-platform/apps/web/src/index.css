@@ -1153,26 +1153,90 @@ textarea {
 }
 
 .question-card__table-wrap {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  margin: var(--sp-4) 0;
+  max-width: 100%;
   overflow-x: auto;
 }
 
 .question-card__table {
   border-collapse: collapse;
+  color: #263449;
   min-width: 100%;
+  width: max-content;
 }
 
 .question-card__table th,
 .question-card__table td {
-  border: 1px solid var(--border-strong);
-  font-size: 14px;
-  padding: var(--sp-2) var(--sp-3);
-  text-align: left;
-  vertical-align: top;
+  border: 0;
+  border-bottom: 1px solid #dfe6ef;
+  border-right: 1px solid #dfe6ef;
+  font-size: 13px;
+  padding: 10px 13px;
+  text-align: center;
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
-.question-card__table th {
-  background: var(--bg-surface);
-  font-weight: 700;
+.question-card__table thead th {
+  background: #eaf1fa;
+  color: #344f73;
+  font-weight: 800;
+}
+
+.question-card__table tbody th {
+  background: #f3f6fa;
+  color: #3f5777;
+  font-weight: 800;
+  left: 0;
+  position: sticky;
+  text-align: left;
+  z-index: 1;
+}
+
+.question-card__table tbody tr:nth-child(even) td {
+  background: #f9fbfd;
+}
+
+.question-card__table tr:last-child > * {
+  border-bottom: 0;
+}
+
+.question-card__table tr > *:last-child {
+  border-right: 0;
+}
+
+.latex-text {
+  white-space: inherit;
+}
+
+.latex-text__formula {
+  display: inline-block;
+  margin: 0 0.12em;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.latex-text__formula--display {
+  display: block;
+  margin: 12px 0;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 4px 0;
+  text-align: center;
+}
+
+.latex-text__formula--display .katex-display {
+  margin: 0;
+}
+
+.latex-text__error {
+  color: var(--error);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+  overflow-wrap: anywhere;
 }
 
 .question-card--shared {

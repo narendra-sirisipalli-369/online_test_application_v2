@@ -44,6 +44,23 @@ export type StudentHistoryEntry = {
   review?: string | null;
 };
 
+export type StudentHistoryQuestion = {
+  id: string;
+  questionNumber: string;
+  paragraph?: string | null;
+  questionText: string;
+  imagePath?: string | null;
+  topic?: string | null;
+  answerType: 'OPTIONS' | 'TEXT';
+  options: Array<{ key: string; content: string }>;
+  correctAnswer?: string | null;
+  correctAnswerContent?: string | null;
+  studentAnswer?: string | null;
+  studentAnswerContent?: string | null;
+  result: 'CORRECT' | 'WRONG' | 'NOT_ANSWERED';
+  answeredAt?: string | null;
+};
+
 export type QuestionOption = {
   id?: string;
   key: string;
@@ -158,6 +175,7 @@ export type HistoryEntry = {
   scorePercent: number;
   submittedAt?: string | null;
   startedAt?: string | null;
+  canReviewAnswers: boolean;
 };
 
 export type TestSession = {

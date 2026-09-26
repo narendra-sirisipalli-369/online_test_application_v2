@@ -11,6 +11,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { api } from "../../api/client";
 import { ContentBlockList } from "../../components/ContentBlockList";
+import { LatexText } from "../../components/LatexText";
 import { PageHeader } from "../../components/PageHeader";
 import { Pagination } from "../../components/Pagination";
 import { useAuth } from "../../context/AuthContext";
@@ -685,6 +686,7 @@ function QuestionEditor({
           rows={4}
           value={question.questionText}
         />
+        <small className="latex-entry-hint">Math formatting: use $...$ for inline formulas or $$...$$ for a centered formula.</small>
         {question.questionText.trim() ? (
           <details className="creator-preview">
             <summary>
@@ -800,13 +802,13 @@ function QuestionPreview({ question }: { question: Question }) {
                 key={option.key}
               >
                 <strong>{option.key}</strong>
-                <span>{option.content || `Option ${option.key}`}</span>
+                <span><LatexText text={option.content || `Option ${option.key}`} /></span>
               </div>
             ))}
           </div>
         ) : (
           <p className="creator-preview__answer">
-            Answer: {question.correctTextAnswer || "Not set"}
+            Answer: <LatexText text={question.correctTextAnswer || "Not set"} />
           </p>
         )}
       </div>
